@@ -9,3 +9,7 @@ huggingface_hub>=0.24.0
 fastapi>=0.111.0
 uvicorn[standard]>=0.30.0
 pydantic>=2.7.0
+
+# Database (Postgres on Railway, SQLite locally)
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0

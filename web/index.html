@@ -7,33 +7,47 @@
   <style>
     * { box-sizing: border-box; }
     body { font-family: system-ui, sans-serif; margin: 0; background: #0f1117; color: #e6e6e6; }
-    header { padding: 16px 24px; background: #171a23; border-bottom: 1px solid #262b38; }
+    header { padding: 14px 24px; background: #171a23; border-bottom: 1px solid #262b38; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
     header h1 { margin: 0; font-size: 18px; }
-    header small { color: #8a93a6; }
-    .tabs { display: flex; gap: 8px; padding: 12px 24px 0; }
+    header small { color: #8a93a6; display: block; }
+    .auth { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+    .auth input { width: 120px; }
+    .tabs { display: flex; gap: 8px; padding: 12px 24px 0; flex-wrap: wrap; }
     .tab { padding: 8px 16px; cursor: pointer; border-radius: 8px 8px 0 0; background: #1b1f2a; color: #8a93a6; }
     .tab.active { background: #232838; color: #fff; }
-    main { padding: 24px; max-width: 820px; margin: 0 auto; }
+    main { padding: 24px; max-width: 860px; margin: 0 auto; }
     .panel { display: none; }
     .panel.active { display: block; }
-    textarea, input { width: 100%; background: #1b1f2a; color: #fff; border: 1px solid #2c3242; border-radius: 8px; padding: 10px; font-size: 14px; }
-    textarea { min-height: 90px; resize: vertical; }
-    button { background: #4f7cff; color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; font-size: 14px; cursor: pointer; margin-top: 10px; }
+    textarea, input { width: 100%; background: #1b1f2a; color: #fff; border: 1px solid #2c3242; border-radius: 8px; padding: 9px; font-size: 14px; }
+    textarea { min-height: 80px; resize: vertical; }
+    button { background: #4f7cff; color: #fff; border: 0; border-radius: 8px; padding: 9px 16px; font-size: 14px; cursor: pointer; }
+    button.ghost { background: #2c3242; }
     button:disabled { opacity: .5; cursor: not-allowed; }
-    .out { white-space: pre-wrap; background: #1b1f2a; border: 1px solid #2c3242; border-radius: 8px; padding: 14px; margin-top: 14px; min-height: 60px; }
+    button.sm { padding: 4px 10px; font-size: 12px; }
+    .out { white-space: pre-wrap; background: #1b1f2a; border: 1px solid #2c3242; border-radius: 8px; padding: 14px; margin-top: 14px; min-height: 50px; }
     .log { font-family: ui-monospace, monospace; font-size: 12px; color: #9fd0a0; max-height: 320px; overflow: auto; }
     label { font-size: 13px; color: #8a93a6; display: block; margin: 12px 0 4px; }
+    .row { display: flex; gap: 8px; align-items: center; }
     .note { font-size: 12px; color: #c9a14a; margin-top: 8px; }
+    .card { background: #1b1f2a; border: 1px solid #2c3242; border-radius: 8px; padding: 12px; margin-top: 10px; }
+    .card .q { color: #cdd6f4; font-weight: 600; }
+    .card .a { color: #9fd0a0; margin-top: 4px; white-space: pre-wrap; }
+    .muted { color: #6b7280; font-size: 12px; }
   </style>
 </head>
 <body>
   <header>
-    <h1>🧠 My LLM</h1>
-    <small id="status">checking model…</small>
+    <div>
+      <h1>🧠 My LLM</h1>
+      <small id="status">checking…</small>
+    </div>
+    <div class="auth" id="authBox"></div>
   </header>
 
   <div class="tabs">
     <div class="tab active" data-tab="chat">💬 Chat</div>
+    <div class="tab" data-tab="data">📚 Data</div>
+    <div class="tab" data-tab="history">🕓 History</div>
     <div class="tab" data-tab="train">🎓 Train</div>
   </div>
 
@@ -44,37 +58,110 @@
       <input id="system" placeholder="You are a helpful assistant." />
       <label>Your message</label>
       <textarea id="prompt" placeholder="Ask something…"></textarea>
-      <button id="send">Send</button>
+      <div style="margin-top:10px"><button id="send">Send</button></div>
       <div class="out" id="answer">…</div>
+      <div class="muted" style="margin-top:6px">Every chat is saved to the database (see the History tab).</div>
+    </section>
+
+    <!-- DATA -->
+    <section class="panel" id="data">
+      <p>Manage your <b>training examples</b> here. They're stored in the database and you can train directly from them (Train tab → "use database examples").</p>
+      <label>Instruction (what the user asks)</label>
+      <input id="exInstruction" placeholder="What's your return policy?" />
+      <label>Input (optional context)</label>
+      <input id="exInput" placeholder="" />
+      <label>Output (the answer you want)</label>
+      <textarea id="exOutput" placeholder="You can return items within 30 days for a full refund."></textarea>
+      <div style="margin-top:10px"><button id="addEx">Add example</button>
+        <button class="ghost sm" id="reloadEx">Refresh list</button></div>
+      <div id="exList"></div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="panel" id="history">
+      <div class="row"><button class="ghost" id="reloadHist">Refresh</button>
+        <span class="muted">Shows your chats when logged in, otherwise recent anonymous chats.</span></div>
+      <div id="histList"></div>
     </section>
 
     <!-- TRAIN -->
     <section class="panel" id="train">
-      <p>Fine-tune the model on the examples in <code>data/train.jsonl</code>.
-         Edit that file first, then start training.</p>
-      <div class="note">⚠️ Training is heavy. Do this locally or on a free GPU
-         (Colab/Kaggle). On Railway's CPU it will be very slow.</div>
-      <button id="trainBtn">Start training</button>
+      <p>Fine-tune the model.</p>
+      <label class="row" style="gap:6px"><input type="checkbox" id="fromDb" style="width:auto" /> Train from <b>database examples</b> (otherwise uses data/train.jsonl)</label>
+      <div class="note">⚠️ Training is heavy. Do this locally or on a free GPU (Colab/Kaggle). On Railway's CPU it's very slow.</div>
+      <div style="margin-top:10px"><button id="trainBtn">Start training</button></div>
       <div class="out log" id="trainLog">No training started yet.</div>
     </section>
   </main>
 
   <script>
-    // --- tabs ---
+    // ---------- auth state ----------
+    let token = localStorage.getItem("llm_token") || null;
+    let username = localStorage.getItem("llm_user") || null;
+
+    function headers(json = true) {
+      const h = {};
+      if (json) h["Content-Type"] = "application/json";
+      if (token) h["Authorization"] = "Bearer " + token;
+      return h;
+    }
+    async function api(path, opts = {}) {
+      const r = await fetch(path, { ...opts, headers: { ...headers(opts.body != null), ...(opts.headers || {}) } });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+      return r.status === 204 ? null : r.json();
+    }
+
+    function renderAuth() {
+      const box = document.getElementById("authBox");
+      if (token && username) {
+        box.innerHTML = `<span>👤 <b>${username}</b></span> <button class="ghost sm" id="logoutBtn">Logout</button>`;
+        document.getElementById("logoutBtn").onclick = logout;
+      } else {
+        box.innerHTML = `
+          <input id="u" placeholder="username" />
+          <input id="p" type="password" placeholder="password" />
+          <button class="sm" id="loginBtn">Login</button>
+          <button class="ghost sm" id="regBtn">Register</button>`;
+        document.getElementById("loginBtn").onclick = () => auth("/auth/login");
+        document.getElementById("regBtn").onclick = () => auth("/auth/register");
+      }
+    }
+    async function auth(path) {
+      const u = document.getElementById("u").value.trim();
+      const p = document.getElementById("p").value;
+      if (!u || !p) return alert("Enter username and password");
+      try {
+        const data = await api(path, { method: "POST", body: JSON.stringify({ username: u, password: p }) });
+        token = data.token; username = data.username;
+        localStorage.setItem("llm_token", token);
+        localStorage.setItem("llm_user", username);
+        renderAuth();
+      } catch (e) { alert("Auth failed: " + e.message); }
+    }
+    async function logout() {
+      try { await api("/auth/logout", { method: "POST" }); } catch (e) {}
+      token = null; username = null;
+      localStorage.removeItem("llm_token"); localStorage.removeItem("llm_user");
+      renderAuth();
+    }
+
+    // ---------- tabs ----------
     document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
       document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
       document.querySelectorAll(".panel").forEach(x => x.classList.remove("active"));
       t.classList.add("active");
       document.getElementById(t.dataset.tab).classList.add("active");
+      if (t.dataset.tab === "data") loadExamples();
+      if (t.dataset.tab === "history") loadHistory();
     });
 
-    // --- status banner ---
+    // ---------- status ----------
     fetch("/health").then(r => r.json()).then(h => {
       document.getElementById("status").textContent =
-        `model: ${h.base_model} · fine-tuned: ${h.fine_tuned ? "yes" : "no"}`;
+        `model: ${h.base_model} · fine-tuned: ${h.fine_tuned ? "yes" : "no"} · db: ${h.database}`;
     });
 
-    // --- chat ---
+    // ---------- chat ----------
     const send = document.getElementById("send");
     send.onclick = async () => {
       const prompt = document.getElementById("prompt").value.trim();
@@ -83,25 +170,79 @@
       const answer = document.getElementById("answer");
       send.disabled = true; answer.textContent = "thinking… (first reply is slow — it loads the model)";
       try {
-        const r = await fetch("/generate", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt, system })
-        });
-        const data = await r.json();
-        answer.textContent = data.response ?? JSON.stringify(data);
-      } catch (e) { answer.textContent = "Error: " + e; }
+        const data = await api("/generate", { method: "POST", body: JSON.stringify({ prompt, system }) });
+        answer.textContent = data.response;
+      } catch (e) { answer.textContent = "Error: " + e.message; }
       send.disabled = false;
     };
 
-    // --- training ---
+    // ---------- data / examples ----------
+    async function loadExamples() {
+      const list = document.getElementById("exList");
+      list.innerHTML = "<div class='muted'>loading…</div>";
+      try {
+        const rows = await api("/examples");
+        if (!rows.length) { list.innerHTML = "<div class='muted'>No examples yet. Add some above.</div>"; return; }
+        list.innerHTML = "";
+        rows.forEach(r => {
+          const d = document.createElement("div");
+          d.className = "card";
+          d.innerHTML = `<div class="q">${escapeHtml(r.instruction)}${r.input ? " — <i>" + escapeHtml(r.input) + "</i>" : ""}</div>
+                         <div class="a">${escapeHtml(r.output)}</div>
+                         <div style="margin-top:6px"><button class="ghost sm" data-id="${r.id}">Delete</button></div>`;
+          d.querySelector("button").onclick = async (e) => {
+            await api("/examples/" + e.target.dataset.id, { method: "DELETE" });
+            loadExamples();
+          };
+          list.appendChild(d);
+        });
+      } catch (e) { list.innerHTML = "Error: " + e.message; }
+    }
+    document.getElementById("addEx").onclick = async () => {
+      const instruction = document.getElementById("exInstruction").value.trim();
+      const input = document.getElementById("exInput").value.trim();
+      const output = document.getElementById("exOutput").value.trim();
+      if (!instruction || !output) return alert("Instruction and output are required");
+      try {
+        await api("/examples", { method: "POST", body: JSON.stringify({ instruction, input, output }) });
+        document.getElementById("exInstruction").value = "";
+        document.getElementById("exInput").value = "";
+        document.getElementById("exOutput").value = "";
+        loadExamples();
+      } catch (e) { alert("Error: " + e.message); }
+    };
+    document.getElementById("reloadEx").onclick = loadExamples;
+
+    // ---------- history ----------
+    async function loadHistory() {
+      const list = document.getElementById("histList");
+      list.innerHTML = "<div class='muted'>loading…</div>";
+      try {
+        const rows = await api("/history");
+        if (!rows.length) { list.innerHTML = "<div class='muted'>No chats yet.</div>"; return; }
+        list.innerHTML = "";
+        rows.forEach(r => {
+          const d = document.createElement("div");
+          d.className = "card";
+          d.innerHTML = `<div class="q">${escapeHtml(r.prompt)}</div>
+                         <div class="a">${escapeHtml(r.response)}</div>
+                         <div class="muted" style="margin-top:6px">${r.created_at}</div>`;
+          list.appendChild(d);
+        });
+      } catch (e) { list.innerHTML = "Error: " + e.message; }
+    }
+    document.getElementById("reloadHist").onclick = loadHistory;
+
+    // ---------- training ----------
     const trainBtn = document.getElementById("trainBtn");
     const trainLog = document.getElementById("trainLog");
     let poll = null;
     trainBtn.onclick = async () => {
       trainBtn.disabled = true;
-      await fetch("/train", { method: "POST" });
+      const fromDb = document.getElementById("fromDb").checked;
+      await api("/train?from_db=" + fromDb, { method: "POST" });
       poll = setInterval(async () => {
-        const s = await (await fetch("/train/status")).json();
+        const s = await api("/train/status");
         trainLog.textContent = (s.log || []).join("\n") || "starting…";
         trainLog.scrollTop = trainLog.scrollHeight;
         if (!s.running && (s.done || s.error)) {
@@ -111,6 +252,12 @@
         }
       }, 1500);
     };
+
+    function escapeHtml(s) {
+      return (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    }
+
+    renderAuth();
   </script>
 </body>
 </html>

@@ -39,14 +39,24 @@ def _read_jsonl(path):
     return rows
 
 
-def build_dataset(tokenizer, path, max_len):
+def load_rows(from_db=False):
+    """Get training rows either from the database or the jsonl file."""
+    if from_db:
+        import database
+        rows = database.get_training_examples()
+        print(f"Loaded {len(rows)} examples from the database")
+        return rows
+    return _read_jsonl(config.TRAIN_FILE)
+
+
+def build_dataset(tokenizer, rows, max_len):
     """
     Turn each {instruction, input, output} row into tokenized training data.
     We mask the prompt tokens (-100) so the model only learns to produce the
     *answer*, not to repeat the question.
     """
     examples = []
-    for r in _read_jsonl(path):
+    for r in rows:
         instruction = (r.get("instruction") or "").strip()
         extra_input = (r.get("input") or "").strip()
         output = (r.get("output") or "").strip()
@@ -80,7 +90,7 @@ def build_dataset(tokenizer, path, max_len):
             }
         )
     if not examples:
-        raise ValueError(f"No valid examples found in {path}")
+        raise ValueError("No valid training examples found")
     return examples
 
 
@@ -114,8 +124,15 @@ class _LogCallback(TrainerCallback):
             self.cb(f"step {state.global_step}: {logs}")
 
 
-def train(log_cb=None):
-    """Run the fine-tune. log_cb (optional) receives progress strings."""
+def train(log_cb=None, from_db=False):
+    """Run the fine-tune. log_cb (optional) receives progress strings.
+
+    from_db=True trains on examples stored in the database; otherwise it uses
+    data/train.jsonl. Can also be forced with the TRAIN_FROM_DB=1 env var.
+    """
+    import os
+    if os.environ.get("TRAIN_FROM_DB", "").lower() in ("1", "true", "yes"):
+        from_db = True
 
     def log(msg):
         print(msg)
@@ -152,8 +169,10 @@ def train(log_cb=None):
     log(f"Trainable params: {trainable:,} / {total:,} "
         f"({100 * trainable / total:.2f}%)")
 
-    log(f"Loading data from {config.TRAIN_FILE}")
-    dataset = build_dataset(tokenizer, config.TRAIN_FILE, config.TrainCfg.max_seq_len)
+    source = "database" if from_db else str(config.TRAIN_FILE)
+    log(f"Loading data from {source}")
+    rows = load_rows(from_db=from_db)
+    dataset = build_dataset(tokenizer, rows, config.TrainCfg.max_seq_len)
     log(f"Loaded {len(dataset)} examples")
 
     args = TrainingArguments(

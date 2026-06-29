@@ -3,6 +3,8 @@
 A complete starter kit to **download an open-source LLM, fine-tune it on your own
 data, chat with it, and deploy it to Railway** — with a simple web UI.
 
+> 📐 See [ARCHITECTURE.md](ARCHITECTURE.md) for diagrams and a full breakdown of how it all fits together.
+
 - **Base model:** [Qwen2.5-0.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) (Apache-2.0, small enough for a CPU)
 - **Fine-tuning:** LoRA (trains a tiny adapter — works on modest hardware)
 - **Serving:** FastAPI + a browser UI (Chat + Train tabs)

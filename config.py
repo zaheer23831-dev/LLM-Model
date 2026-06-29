@@ -29,7 +29,7 @@ BASE_MODEL_ID = os.environ.get("BASE_MODEL_ID", "Qwen/Qwen2.5-0.5B-Instruct")
 # ---------------------------------------------------------------------------
 # Generation defaults
 # ---------------------------------------------------------------------------
-MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "256"))
+MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "96"))  # shorter = faster on CPU
 TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.7"))
 TOP_P = float(os.environ.get("TOP_P", "0.9"))
 

@@ -7,10 +7,19 @@ Use it as a CLI for a quick chat:
 
 Or import generate() from the web app.
 """
+import os
+import threading
+
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
 
 import config
+
+# Use all available CPU cores — meaningfully faster generation on CPU-only hosts.
+try:
+    torch.set_num_threads(os.cpu_count() or 1)
+except Exception:
+    pass
 
 _tokenizer = None
 _model = None
@@ -46,31 +55,54 @@ def load():
     return _tokenizer, _model
 
 
-def generate(prompt, system=None, max_new_tokens=None):
-    tokenizer, model = load()
-
+def _build_inputs(tokenizer, prompt, system):
     messages = []
     if system:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
-
     text = tokenizer.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True
     )
-    inputs = tokenizer(text, return_tensors="pt")
+    return tokenizer(text, return_tensors="pt")
 
+
+def _gen_kwargs(tokenizer, inputs, max_new_tokens):
+    return dict(
+        input_ids=inputs["input_ids"],
+        attention_mask=inputs["attention_mask"],
+        max_new_tokens=max_new_tokens or config.MAX_NEW_TOKENS,
+        do_sample=True,
+        temperature=config.TEMPERATURE,
+        top_p=config.TOP_P,
+        pad_token_id=tokenizer.eos_token_id,
+    )
+
+
+def generate(prompt, system=None, max_new_tokens=None):
+    """Generate the full reply, then return it."""
+    tokenizer, model = load()
+    inputs = _build_inputs(tokenizer, prompt, system)
     with torch.no_grad():
-        output = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens or config.MAX_NEW_TOKENS,
-            do_sample=True,
-            temperature=config.TEMPERATURE,
-            top_p=config.TOP_P,
-            pad_token_id=tokenizer.eos_token_id,
-        )
-
+        output = model.generate(**_gen_kwargs(tokenizer, inputs, max_new_tokens))
     new_tokens = output[0][inputs["input_ids"].shape[1]:]
     return tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+
+
+def generate_stream(prompt, system=None, max_new_tokens=None):
+    """Yield the reply token-by-token as it's produced (for live streaming)."""
+    tokenizer, model = load()
+    inputs = _build_inputs(tokenizer, prompt, system)
+    streamer = TextIteratorStreamer(
+        tokenizer, skip_prompt=True, skip_special_tokens=True
+    )
+    kwargs = _gen_kwargs(tokenizer, inputs, max_new_tokens)
+    kwargs["streamer"] = streamer
+    thread = threading.Thread(target=model.generate, kwargs=kwargs)
+    thread.start()
+    for piece in streamer:
+        if piece:
+            yield piece
+    thread.join()
 
 
 if __name__ == "__main__":

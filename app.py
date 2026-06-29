@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Header, HTTPException, Depends
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 import config
@@ -152,6 +152,34 @@ def generate(req: GenRequest, user=Depends(current_user)):
         )
         db.commit()
     return {"response": text}
+
+
+@app.post("/generate/stream")
+def generate_stream(req: GenRequest, user=Depends(current_user)):
+    """Stream the reply token-by-token; logs the full reply when finished."""
+    user_id = user["id"] if user else None
+
+    def produce():
+        chunks = []
+        for piece in inference.generate_stream(
+            req.prompt, system=req.system, max_new_tokens=req.max_new_tokens
+        ):
+            chunks.append(piece)
+            yield piece
+        full = "".join(chunks).strip()
+        with database.SessionLocal() as db:
+            db.add(
+                database.ChatLog(
+                    user_id=user_id,
+                    system=req.system,
+                    prompt=req.prompt,
+                    response=full,
+                    model=config.BASE_MODEL_ID,
+                )
+            )
+            db.commit()
+
+    return StreamingResponse(produce(), media_type="text/plain; charset=utf-8")
 
 
 @app.get("/history")

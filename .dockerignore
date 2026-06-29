@@ -1,5 +1,11 @@
-models/
+# Base model is downloaded at runtime — keep it out of the image.
+models/base/
 .hf_cache/
+# Checkpoints aren't needed in the image.
+models/adapter/_checkpoints/
+
+# models/adapter/ IS included so the fine-tuned model ships with the image.
+
 __pycache__/
 *.pyc
 .git/

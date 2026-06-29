@@ -1,7 +1,12 @@
-# Model weights are large — don't commit them. They are re-downloaded
-# by download_model.py (or automatically on first run).
-models/
+# Base model weights are large (~1 GB) — re-downloaded by code. Don't commit.
+models/base/
 .hf_cache/
+
+# Training checkpoints (regenerated each run)
+models/adapter/_checkpoints/
+
+# NOTE: models/adapter/ (your fine-tuned LoRA, ~35 MB) IS committed on purpose,
+# so it deploys to Railway and persists across redeploys.
 
 # Python
 __pycache__/

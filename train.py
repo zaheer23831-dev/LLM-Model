@@ -122,6 +122,10 @@ def train(log_cb=None):
         if log_cb:
             log_cb(msg)
 
+    on_gpu = torch.cuda.is_available()
+    log(f"Device: {torch.cuda.get_device_name(0) if on_gpu else 'CPU'} "
+        f"({'GPU — fast' if on_gpu else 'CPU — slow; use Colab/Kaggle for real runs'})")
+
     config.ensure_base_model()
     src = config.model_source()
 
@@ -161,6 +165,7 @@ def train(log_cb=None):
         logging_steps=1,
         save_strategy="no",
         report_to=[],
+        fp16=on_gpu,  # mixed-precision speedup on GPU; ignored on CPU
     )
 
     trainer = Trainer(

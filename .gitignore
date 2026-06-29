@@ -1,0 +1,14 @@
+# Model weights are large — don't commit them. They are re-downloaded
+# by download_model.py (or automatically on first run).
+models/
+.hf_cache/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local config / logs
+.env
+*.log

@@ -1,0 +1,9 @@
+models/
+.hf_cache/
+__pycache__/
+*.pyc
+.git/
+.venv/
+venv/
+.env
+*.log
